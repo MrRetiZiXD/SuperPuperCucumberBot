@@ -1,2 +1,2 @@
 # SuperPuperCucumberBot
-🥒
+Just a cucumber! 🥒
