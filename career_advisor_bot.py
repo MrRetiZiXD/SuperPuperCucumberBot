@@ -15,16 +15,13 @@ from telegram.ext import (
     MessageHandler, ConversationHandler, ContextTypes, filters
 )
 
-# ====== Конфигурация ======
 BOT_TOKEN = os.getenv("BOT_TOKEN", "8474132149:AAHIinr4CEV53oYLZVnwu3pcxqQNrVxcWck")
 DB_PATH = "career_advisor.db"
 HH_API_URL = "https://api.hh.ru/vacancies"
 
-# Состояния для ConversationHandler
 (AGE_GROUP, EDUCATION, INTERESTS, SKILLS, CURRENT_JOB, 
  SATISFACTION, TEST_QUESTION, SEARCH_QUERY, TEST_ANSWER) = range(9)
 
-# Категории профессий для тестирования
 CAREER_CATEGORIES = {
     "IT": "IT и технологии",
     "CREATIVE": "Творчество и дизайн", 
@@ -35,13 +32,11 @@ CAREER_CATEGORIES = {
     "SERVICE": "Сфера услуг"
 }
 
-# ====== База данных ======
 def init_database():
     """Инициализация базы данных с расширенной схемой"""
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    
-    # Таблица пользователей
+
     c.execute("""
     CREATE TABLE IF NOT EXISTS users(
         user_id INTEGER PRIMARY KEY,
@@ -57,7 +52,6 @@ def init_database():
         updated_at TEXT
     )""")
     
-    # Таблица профессий
     c.execute("""
     CREATE TABLE IF NOT EXISTS careers(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -72,7 +66,6 @@ def init_database():
         created_at TEXT
     )""")
     
-    # Таблица тестовых вопросов
     c.execute("""
     CREATE TABLE IF NOT EXISTS test_questions(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -83,7 +76,6 @@ def init_database():
         order_num INTEGER
     )""")
     
-    # Таблица результатов тестов
     c.execute("""
     CREATE TABLE IF NOT EXISTS user_test_results(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -93,8 +85,7 @@ def init_database():
         test_date TEXT,
         FOREIGN KEY (user_id) REFERENCES users (user_id)
     )""")
-    
-    # Таблица взаимодействий
+
     c.execute("""
     CREATE TABLE IF NOT EXISTS interactions(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -105,7 +96,6 @@ def init_database():
         FOREIGN KEY (user_id) REFERENCES users (user_id)
     )""")
     
-    # Таблица кеша вакансий
     c.execute("""
     CREATE TABLE IF NOT EXISTS parsed_vacancies(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -122,15 +112,13 @@ def seed_careers():
     """Заполнение базы данных профессиями"""
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    
-    # Проверяем, есть ли уже данные
+
     c.execute("SELECT COUNT(*) FROM careers")
     if c.fetchone()[0] > 0:
         conn.close()
         return
     
     careers_data = [
-        # IT и технологии
         ("Frontend разработчик", "IT и технологии", 
          "Создание пользовательских интерфейсов для веб-сайтов и приложений. Работа с HTML, CSS, JavaScript и современными фреймворками.",
          "JavaScript,HTML,CSS,React,Vue.js,TypeScript", "ВУЗ/Курсы", "80000-200000",
@@ -161,7 +149,6 @@ def seed_careers():
          "Linux,Windows,сети,безопасность,мониторинг", "ВУЗ/Курсы", "70000-180000",
          "администрирование,серверы,сети,безопасность", "https://www.redhat.com/,https://ubuntu.com/"),
         
-        # Творчество и дизайн
         ("UX/UI дизайнер", "Творчество и дизайн",
          "Проектирование пользовательского опыта и создание удобных интерфейсов для цифровых продуктов.",
          "Figma,Sketch,Adobe XD,прототипирование,исследования", "Курсы/Портфолио", "80000-200000",
@@ -187,7 +174,6 @@ def seed_careers():
          "Premiere Pro,After Effects,DaVinci Resolve,цветокоррекция", "Курсы/Опыт", "50000-150000",
          "видео,монтаж,креатив,постпродакшн", "https://www.adobe.com/,https://www.blackmagicdesign.com/"),
         
-        # Бизнес и управление
         ("Менеджер проектов", "Бизнес и управление",
          "Планирование и координация проектов, управление командой и контроль сроков выполнения.",
          "планирование,управление,команда,коммуникации,Agile", "ВУЗ/Курсы", "80000-200000",
@@ -213,7 +199,6 @@ def seed_careers():
          "аналитика,пользователи,стратегия,коммуникации", "ВУЗ/Опыт", "100000-250000",
          "продукт,аналитика,стратегия,управление", "https://www.productplan.com/,https://amplitude.com/"),
         
-        # Наука и образование
         ("Преподаватель", "Наука и образование",
          "Обучение студентов, разработка учебных программ и проведение научных исследований.",
          "педагогика,предметные знания,исследования,коммуникации", "ВУЗ", "40000-120000",
@@ -229,7 +214,6 @@ def seed_careers():
          "иностранные языки,лингвистика,культура,коммуникации", "ВУЗ/Курсы", "50000-150000",
          "языки,перевод,лингвистика,культура", "https://www.deepl.com/,https://translate.google.com/"),
         
-        # Медицина и здоровье
         ("Врач", "Медицина и здоровье",
          "Диагностика и лечение заболеваний, консультации пациентов и медицинские процедуры.",
          "медицина,диагностика,лечение,коммуникации", "ВУЗ/Ординатура", "80000-300000",
@@ -250,7 +234,6 @@ def seed_careers():
          "медицина,уход,процедуры,коммуникации,эмпатия", "Колледж/ВУЗ", "40000-100000",
          "медицина,уход,помощь,здоровье", "https://www.nursingworld.org/,https://www.icn.ch/"),
         
-        # Рабочие специальности
         ("Электрик", "Рабочие специальности",
          "Монтаж и обслуживание электрических систем, ремонт электрооборудования.",
          "электрика,монтаж,ремонт,безопасность,инструменты", "Колледж/Курсы", "50000-120000",
@@ -271,7 +254,6 @@ def seed_careers():
          "строительство,материалы,инструменты,чертежи,безопасность", "Курсы/Опыт", "40000-100000",
          "строительство,ремонт,монтаж,техника", "https://www.osha.gov/,https://www.construction.com/"),
         
-        # Сфера услуг
         ("Повар", "Сфера услуг",
          "Приготовление блюд, разработка меню и управление кухней в ресторанах.",
          "кулинария,меню,управление,творчество,гигиена", "Колледж/Курсы", "40000-100000",
@@ -297,7 +279,6 @@ def seed_careers():
          "логистика,склад,транспорт,планирование,аналитика", "ВУЗ/Курсы", "50000-130000",
          "логистика,транспорт,склад,планирование", "https://www.cscmp.org/,https://www.supplychain247.com/"),
         
-        # Дополнительные IT профессии
         ("Мобильный разработчик", "IT и технологии",
          "Разработка мобильных приложений для iOS и Android платформ.",
          "Swift,Kotlin,React Native,Flutter,мобильная разработка", "ВУЗ/Курсы", "90000-220000",
@@ -318,7 +299,6 @@ def seed_careers():
          "Solidity,Web3,JavaScript,криптография,смарт-контракты", "ВУЗ/Курсы", "120000-300000",
          "блокчейн,криптовалюты,децентрализация,программирование", "https://ethereum.org/,https://docs.soliditylang.org/"),
         
-        # Дополнительные творческие профессии
         ("Фотограф", "Творчество и дизайн",
          "Создание фотографий для различных целей: портреты, свадьбы, коммерческая съемка.",
          "фотография,композиция,свет,постобработка,Photoshop", "Курсы/Портфолио", "40000-150000",
@@ -334,7 +314,6 @@ def seed_careers():
          "AutoCAD,SketchUp,3D моделирование,строительство,дизайн", "ВУЗ", "80000-200000",
          "архитектура,дизайн,строительство,творчество", "https://www.autodesk.com/,https://www.sketchup.com/"),
         
-        # Дополнительные бизнес профессии
         ("Финансовый аналитик", "Бизнес и управление",
          "Анализ финансовых данных, оценка инвестиций и подготовка финансовых отчетов.",
          "финансы,Excel,аналитика,моделирование,статистика", "ВУЗ", "80000-200000",
@@ -350,7 +329,6 @@ def seed_careers():
          "планирование,координация,творчество,коммуникации,бюджет", "Курсы/Опыт", "50000-130000",
          "мероприятия,планирование,творчество,координация", "https://www.eventbrite.com/,https://www.cvent.com/"),
         
-        # Дополнительные профессии в сфере услуг
         ("Стилист", "Сфера услуг",
          "Создание образов, подбор одежды и аксессуаров, консультирование по стилю.",
          "стилистика,мода,цвет,композиция,коммуникации", "Курсы/Опыт", "40000-120000",
@@ -366,7 +344,6 @@ def seed_careers():
          "педагогика,психология,творчество,ответственность,терпение", "Курсы/Опыт", "30000-80000",
          "дети,уход,воспитание,развитие", "https://www.care.com/,https://www.sittercity.com/"),
         
-        # Дополнительные технические профессии
         ("Инженер-конструктор", "Рабочие специальности",
          "Проектирование технических изделий, создание чертежей и технической документации.",
          "CAD,инженерия,чертежи,материалы,расчеты", "ВУЗ", "70000-180000",
@@ -382,7 +359,6 @@ def seed_careers():
          "сварка,металлы,инструменты,безопасность,чертежи", "Курсы/Сертификаты", "50000-120000",
          "сварка,металлы,производство,техника", "https://www.aws.org/,https://www.lincolnelectric.com/"),
         
-        # Дополнительные профессии в науке и образовании
         ("Библиотекарь", "Наука и образование",
          "Организация библиотечных фондов, помощь читателям и проведение культурных мероприятий.",
          "каталогизация,информационные технологии,коммуникации,культура", "ВУЗ/Курсы", "30000-70000",
@@ -398,7 +374,6 @@ def seed_careers():
          "экология,биология,химия,анализ,мониторинг", "ВУЗ", "50000-120000",
          "экология,природа,исследования,охрана", "https://www.epa.gov/,https://www.unep.org/"),
         
-        # Дополнительные медицинские профессии
         ("Фармацевт", "Медицина и здоровье",
          "Изготовление и отпуск лекарств, консультирование по применению медикаментов.",
          "фармакология,химия,медицина,консультирование", "ВУЗ", "60000-140000",
@@ -415,7 +390,6 @@ def seed_careers():
          "питание,диетология,здоровье,консультирование", "https://www.eatright.org/,https://www.nutrition.org/")
     ]
     
-    # Вставляем данные
     for career in careers_data:
         c.execute("""
         INSERT INTO careers(name, category, description, skills_required, education_level, 
@@ -432,105 +406,88 @@ def seed_test_questions():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     
-    # Проверяем, есть ли уже данные
     c.execute("SELECT COUNT(*) FROM test_questions")
     if c.fetchone()[0] > 0:
         conn.close()
         return
     
     questions_data = [
-        # Вопрос 1
         ("Что тебя больше всего привлекает в работе?", 
          "Создание чего-то нового,Решение сложных задач,Помощь людям,Анализ данных,Управление процессами,Работа с техникой",
          "CREATIVE:3,IT:2,BUSINESS:1,SCIENCE:2,MEDICAL:3,TECHNICAL:1",
          "general", 1),
         
-        # Вопрос 2
         ("Какой тип задач тебе нравится больше всего?",
          "Программирование и разработка,Дизайн и творчество,Планирование и организация,Исследования и анализ,Лечение и помощь,Работа руками",
          "IT:4,CREATIVE:3,BUSINESS:2,SCIENCE:3,MEDICAL:2,TECHNICAL:3",
          "tasks", 2),
         
-        # Вопрос 3
         ("В какой среде ты предпочитаешь работать?",
          "За компьютером в офисе,В творческой студии,В переговорных комнатах,В лаборатории,В больнице/клинике,На производстве",
          "IT:4,CREATIVE:4,BUSINESS:3,SCIENCE:4,MEDICAL:4,TECHNICAL:3",
          "environment", 3),
         
-        # Вопрос 4
         ("Что для тебя важнее в карьере?",
          "Высокая зарплата,Творческая самореализация,Карьерный рост,Научные открытия,Помощь людям,Стабильность",
          "IT:2,CREATIVE:4,BUSINESS:3,SCIENCE:3,MEDICAL:4,TECHNICAL:2",
          "values", 4),
         
-        # Вопрос 5
         ("Как ты предпочитаешь учиться?",
          "Онлайн курсы и практика,Художественные мастер-классы,Бизнес-тренинги,Научные исследования,Медицинская практика,Работа с инструментами",
          "IT:4,CREATIVE:3,BUSINESS:2,SCIENCE:3,MEDICAL:3,TECHNICAL:3",
          "learning", 5),
         
-        # Вопрос 6
         ("Какой уровень ответственности тебя привлекает?",
          "Высокий - управление проектами,Средний - работа в команде,Высокий - принятие решений,Средний - исследовательская работа,Высокий - жизнь людей,Средний - качество работы",
          "IT:2,BUSINESS:4,SCIENCE:2,MEDICAL:4,TECHNICAL:2",
          "responsibility", 6),
         
-        # Вопрос 7
         ("Что тебя мотивирует больше всего?",
          "Технологические инновации,Красота и эстетика,Достижение целей,Научные открытия,Здоровье людей,Качественный результат",
          "IT:4,CREATIVE:4,BUSINESS:3,SCIENCE:4,MEDICAL:4,TECHNICAL:3",
          "motivation", 7),
         
-        # Вопрос 8
         ("Как ты относишься к рутинной работе?",
          "Терпеть не могу,Иногда нормально,Принимаю как необходимость,Могу работать с данными,Важна для здоровья,Это основа качества",
          "IT:1,CREATIVE:1,BUSINESS:2,SCIENCE:2,MEDICAL:2,TECHNICAL:3",
          "routine", 8),
         
-        # Вопрос 9
         ("Какой тип коммуникации тебе ближе?",
          "С коллегами-разработчиками,С клиентами и творческими людьми,С командой и партнерами,С научным сообществом,С пациентами,С заказчиками",
          "IT:3,CREATIVE:3,BUSINESS:4,SCIENCE:3,MEDICAL:4,TECHNICAL:2",
          "communication", 9),
         
-        # Вопрос 10
         ("Что для тебя означает успех в карьере?",
          "Создание популярного продукта,Признание в творческой среде,Рост компании,Научные публикации,Спасенные жизни,Надежные системы",
          "IT:4,CREATIVE:4,BUSINESS:3,SCIENCE:4,MEDICAL:4,TECHNICAL:3",
          "success", 10),
         
-        # Вопрос 11
         ("Как ты предпочитаешь решать проблемы?",
          "Через код и алгоритмы,Творческим подходом,Через планирование,Через анализ данных,Через диагностику,Через практические методы",
          "IT:4,CREATIVE:3,BUSINESS:2,SCIENCE:3,MEDICAL:3,TECHNICAL:3",
          "problem_solving", 11),
-        
-        # Вопрос 12
+
         ("Какой график работы тебе подходит?",
          "Гибкий, с возможностью удаленки,Свободный творческий,Стандартный офисный,Лабораторный с исследованиями,Дежурства и смены,Производственный",
          "IT:4,CREATIVE:3,BUSINESS:2,SCIENCE:2,MEDICAL:1,TECHNICAL:2",
          "schedule", 12),
-        
-        # Вопрос 13
+
         ("Что тебя больше всего интересует?",
          "Новые технологии,Искусство и дизайн,Бизнес-процессы,Научные явления,Человеческое здоровье,Технические системы",
          "IT:4,CREATIVE:4,BUSINESS:3,SCIENCE:4,MEDICAL:4,TECHNICAL:4",
          "interests", 13),
-        
-        # Вопрос 14
+
         ("Как ты относишься к работе в команде?",
          "Предпочитаю небольшие команды,Люблю творческие коллаборации,Отлично работаю в команде,Работаю в исследовательских группах,Командная работа в медицине,Работаю с бригадой",
          "IT:3,CREATIVE:3,BUSINESS:4,SCIENCE:3,MEDICAL:4,TECHNICAL:3",
          "teamwork", 14),
-        
-        # Вопрос 15
+
         ("Что для тебя важнее в работе?",
          "Инновации и технологии,Красота и эстетика,Эффективность и результат,Точность и анализ,Здоровье и безопасность,Надежность и качество",
          "IT:4,CREATIVE:4,BUSINESS:3,SCIENCE:3,MEDICAL:4,TECHNICAL:4",
          "priorities", 15)
     ]
     
-    # Вставляем данные
     for question in questions_data:
         c.execute("""
         INSERT INTO test_questions(question_text, options, weights, category, order_num)
@@ -621,13 +578,12 @@ async def cleanup_old_messages(context: ContextTypes.DEFAULT_TYPE, user_id: int,
         
         messages = context.bot_data['bot_messages'][user_id]
         
-        # Удаляем старые сообщения, оставляя только последние
         while len(messages) > keep_last:
             old_message_id = messages.pop(0)
             try:
                 await context.bot.delete_message(chat_id=user_id, message_id=old_message_id)
             except:
-                pass  # Игнорируем ошибки удаления
+                pass
                 
     except Exception as e:
         print(f"Ошибка при очистке сообщений: {e}")
@@ -645,13 +601,11 @@ async def track_message(context: ContextTypes.DEFAULT_TYPE, user_id: int, messag
     except Exception as e:
         print(f"Ошибка при отслеживании сообщения: {e}")
 
-# ====== Основные команды бота ======
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Команда /start - приветствие и главное меню"""
     user = update.effective_user
     record_interaction(user.id, "start_command")
-    
-    # Проверяем, есть ли профиль пользователя
+
     profile = get_user_profile(user.id)
     
     welcome_text = f"👋 Привет, {user.first_name}!\n\n"
@@ -689,7 +643,6 @@ async def profile_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
     
-    # Показываем текущий профиль
     profile_text = f"👤 Твой профиль:\n\n"
     profile_text += f"👶 Возрастная группа: {profile.get('age_group', 'Не указано')}\n"
     profile_text += f"🎓 Образование: {profile.get('education', 'Не указано')}\n"
@@ -714,7 +667,6 @@ async def test_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     record_interaction(user.id, "test_command")
     
-    # Проверяем, есть ли профиль
     profile = get_user_profile(user.id)
     if not profile:
         await update.message.reply_text(
@@ -743,36 +695,30 @@ def generate_recommendations(user_id: int, top_k: int = 5) -> List[Dict]:
     if not profile:
         return []
     
-    # Получаем данные профиля
     interests = set([i.strip().lower() for i in (profile.get("interests") or "").split(",") if i.strip()])
     skills = set([s.strip().lower() for s in (profile.get("skills") or "").split(",") if s.strip()])
     education = profile.get("education", "").lower()
     satisfaction = profile.get("satisfaction", 3)
     
-    # Подсчитываем баллы для каждой профессии
     career_scores = []
     
     for career in all_careers:
         score = 0
         
-        # Совпадение интересов (вес 3)
         career_tags = set([t.lower() for t in career["tags"] if t])
         interest_matches = len(interests & career_tags)
         score += interest_matches * 3
         
-        # Совпадение навыков (вес 4)
         career_skills = set([s.lower() for s in career["skills_required"] if s])
         skill_matches = len(skills & career_skills)
         score += skill_matches * 4
-        
-        # Соответствие образованию (вес 2)
+    
         if education and education in (career["education_level"] or "").lower():
             score += 2
-        
-        # Результаты теста (вес 5)
+
         if test_results:
             career_category = career["category"]
-            # Маппинг категорий
+
             category_mapping = {
                 "IT и технологии": "IT",
                 "Творчество и дизайн": "CREATIVE", 
@@ -786,18 +732,15 @@ def generate_recommendations(user_id: int, top_k: int = 5) -> List[Dict]:
             mapped_category = category_mapping.get(career_category)
             if mapped_category and mapped_category in test_results:
                 score += test_results[mapped_category] * 5
-        
-        # Удовлетворенность работой (вес 2)
-        if satisfaction <= 2:  # Низкая удовлетворенность - ищем смену карьеры
+
+        if satisfaction <= 2:
             if "creative" in career_tags or "product" in career_tags or "design" in career_tags:
                 score += 2
         
         career_scores.append((score, career))
     
-    # Сортируем по убыванию баллов
     career_scores.sort(key=lambda x: x[0], reverse=True)
-    
-    # Возвращаем топ-K профессий
+
     return [career for score, career in career_scores[:top_k] if score > 0]
 
 async def recommendations_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -814,8 +757,7 @@ async def recommendations_command(update: Update, context: ContextTypes.DEFAULT_
             ]])
         )
         return
-    
-    # Генерируем рекомендации
+
     recommendations = generate_recommendations(user.id, top_k=5)
     
     if not recommendations:
@@ -831,8 +773,7 @@ async def recommendations_command(update: Update, context: ContextTypes.DEFAULT_
             ]])
         )
         return
-    
-    # Отправляем рекомендации
+
     text = "💡 Твои персональные рекомендации:\n\n"
     
     for i, career in enumerate(recommendations, 1):
@@ -885,7 +826,6 @@ async def vacancies_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     return SEARCH_QUERY
 
-# ====== Обработчики callback'ов ======
 async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обработчик нажатий на inline-кнопки"""
     query = update.callback_query
@@ -912,7 +852,6 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await start_profile_editing(query, context)
     elif data == "start_test":
         await start_career_test(query, context)
-    # Обработчики создания профиля
     elif data.startswith("age_"):
         await handle_age_selection(query, context, data)
     elif data == "skip_age":
@@ -939,12 +878,10 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await handle_skip_satisfaction(query, context)
     elif data == "complete_profile":
         await handle_complete_profile(query, context)
-    # Обработчики теста
     elif data.startswith("test_answer_"):
         await handle_test_answer(query, context, data)
     elif data == "finish_test":
         await handle_finish_test(query, context)
-    # Обработчики редактирования профиля
     elif data == "edit_age":
         await handle_edit_age(query, context)
     elif data == "edit_education":
@@ -966,7 +903,6 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await query.message.reply_text("❌ Неизвестная команда")
 
-# ====== Callback обработчики ======
 async def handle_main_menu_callback(query, context: ContextTypes.DEFAULT_TYPE):
     """Обработчик главного меню"""
     user = query.from_user
@@ -1003,7 +939,6 @@ async def handle_profile_callback(query, context: ContextTypes.DEFAULT_TYPE):
         )
         return
     
-    # Показываем текущий профиль
     profile_text = f"👤 Твой профиль:\n\n"
     profile_text += f"👶 Возрастная группа: {profile.get('age_group', 'Не указано')}\n"
     profile_text += f"🎓 Образование: {profile.get('education', 'Не указано')}\n"
@@ -1028,7 +963,6 @@ async def handle_test_callback(query, context: ContextTypes.DEFAULT_TYPE):
     user = query.from_user
     record_interaction(user.id, "test_callback")
     
-    # Проверяем, есть ли профиль
     profile = get_user_profile(user.id)
     if not profile:
         await query.message.reply_text(
@@ -1063,7 +997,6 @@ async def handle_recommendations_callback(query, context: ContextTypes.DEFAULT_T
         )
         return
     
-    # Анимация генерации рекомендаций
     loading_msg = await query.message.reply_text("🔄 Анализируем твой профиль...")
     await asyncio.sleep(1)
     
@@ -1076,7 +1009,6 @@ async def handle_recommendations_callback(query, context: ContextTypes.DEFAULT_T
     await loading_msg.edit_text("💡 Генерируем персональные рекомендации...")
     await asyncio.sleep(1)
     
-    # Генерируем рекомендации
     recommendations = generate_recommendations(user.id, top_k=5)
     
     if not recommendations:
@@ -1093,15 +1025,12 @@ async def handle_recommendations_callback(query, context: ContextTypes.DEFAULT_T
         )
         return
     
-    # Анимация завершения
     await loading_msg.edit_text("✨ Рекомендации готовы!")
     await asyncio.sleep(1)
     
-    # Отправляем рекомендации
     text = "🎯 Твои персональные рекомендации:\n\n"
     
     for i, career in enumerate(recommendations, 1):
-        # Эмодзи для категорий
         category_emoji = {
             "IT и технологии": "💻",
             "Творчество и дизайн": "🎨",
@@ -1148,8 +1077,7 @@ async def handle_search_callback(query, context: ContextTypes.DEFAULT_TYPE):
         "🔍 Поиск профессий\n\n"
         "Введи ключевые слова для поиска (например: 'программист', 'дизайн', 'медицина'):"
     )
-    
-    # Устанавливаем состояние для поиска
+
     context.user_data['waiting_for_search'] = True
 
 async def handle_vacancies_callback(query, context: ContextTypes.DEFAULT_TYPE):
@@ -1166,21 +1094,17 @@ async def handle_vacancies_callback(query, context: ContextTypes.DEFAULT_TYPE):
         parse_mode="Markdown"
     )
 
-
-# ====== Заглушки для будущих функций ======
 async def start_profile_creation(query, context: ContextTypes.DEFAULT_TYPE):
     """Начать создание профиля"""
     user = query.from_user
     record_interaction(user.id, "start_profile_creation")
     
-    # Инициализируем профиль пользователя
     context.user_data['profile'] = {
         'user_id': user.id,
         'first_name': user.first_name,
         'username': user.username
     }
     
-    # Анимация загрузки
     loading_msg = await query.message.reply_text("🔄 Создаем твой профиль...")
     await asyncio.sleep(1)
     
@@ -1214,7 +1138,6 @@ async def start_profile_editing(query, context: ContextTypes.DEFAULT_TYPE):
         )
         return
     
-    # Показываем текущий профиль с опциями редактирования
     profile_text = "✏️ Редактирование профиля\n\n"
     profile_text += f"👶 Возрастная группа: {profile.get('age_group', 'Не указано')}\n"
     profile_text += f"🎓 Образование: {profile.get('education', 'Не указано')}\n"
@@ -1241,13 +1164,11 @@ async def start_profile_editing(query, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
-# ====== Обработчики создания профиля ======
 async def handle_age_selection(query, context: ContextTypes.DEFAULT_TYPE, data: str):
     """Обработка выбора возрастной группы"""
     user = query.from_user
     record_interaction(user.id, "age_selection", data)
     
-    # Сохраняем выбор
     age_mapping = {
         "age_13_17": "13-17 лет",
         "age_18_24": "18-24 года", 
@@ -1255,25 +1176,20 @@ async def handle_age_selection(query, context: ContextTypes.DEFAULT_TYPE, data: 
         "age_36_plus": "36+ лет"
     }
     
-    # Проверяем, редактируем ли мы профиль или создаем новый
     if 'profile' in context.user_data:
-        # Создание нового профиля
         context.user_data['profile']['age_group'] = age_mapping[data]
-        
-        # Определяем, сколько шагов будет в зависимости от возраста
+
         age_group = age_mapping[data]
         is_under_18 = age_group == "13-17 лет"
         
         if is_under_18:
-            context.user_data['profile']['total_steps'] = 5  # Без вопросов о работе
+            context.user_data['profile']['total_steps'] = 5 
         else:
-            context.user_data['profile']['total_steps'] = 6  # С вопросами о работе
-        
-        # Анимация
+            context.user_data['profile']['total_steps'] = 6
+
         await query.message.edit_text("✅ Возрастная группа сохранена!")
         await asyncio.sleep(1)
         
-        # Переходим к образованию
         step_num = 2
         total_steps = context.user_data['profile']['total_steps']
         await query.message.edit_text(
@@ -1288,7 +1204,6 @@ async def handle_age_selection(query, context: ContextTypes.DEFAULT_TYPE, data: 
             ])
         )
     else:
-        # Редактирование существующего профиля
         profile = get_user_profile(user.id)
         if profile:
             profile['age_group'] = age_mapping[data]
@@ -1305,31 +1220,26 @@ async def handle_age_selection(query, context: ContextTypes.DEFAULT_TYPE, data: 
 
 async def handle_skip_age(query, context: ContextTypes.DEFAULT_TYPE):
     """Пропуск возрастной группы"""
-    await handle_age_selection(query, context, "age_18_24")  # Устанавливаем по умолчанию
+    await handle_age_selection(query, context, "age_18_24")
 
 async def handle_education_selection(query, context: ContextTypes.DEFAULT_TYPE, data: str):
     """Обработка выбора образования"""
     user = query.from_user
     record_interaction(user.id, "education_selection", data)
-    
-    # Сохраняем выбор
+
     edu_mapping = {
         "edu_school": "Школа",
         "edu_university": "ВУЗ",
         "edu_courses": "Курсы", 
         "edu_experience": "Опыт работы"
     }
-    
-    # Проверяем, редактируем ли мы профиль или создаем новый
+
     if 'profile' in context.user_data:
-        # Создание нового профиля
         context.user_data['profile']['education'] = edu_mapping[data]
         
-        # Анимация
         await query.message.edit_text("✅ Образование сохранено!")
         await asyncio.sleep(1)
         
-        # Переходим к интересам
         step_num = 3
         total_steps = context.user_data['profile']['total_steps']
         await query.message.edit_text(
@@ -1341,10 +1251,8 @@ async def handle_education_selection(query, context: ContextTypes.DEFAULT_TYPE, 
             ])
         )
         
-        # Устанавливаем состояние для ввода интересов
         context.user_data['waiting_for_interests'] = True
     else:
-        # Редактирование существующего профиля
         profile = get_user_profile(user.id)
         if profile:
             profile['education'] = edu_mapping[data]
@@ -1361,18 +1269,16 @@ async def handle_education_selection(query, context: ContextTypes.DEFAULT_TYPE, 
 
 async def handle_skip_education(query, context: ContextTypes.DEFAULT_TYPE):
     """Пропуск образования"""
-    await handle_education_selection(query, context, "edu_courses")  # Устанавливаем по умолчанию
+    await handle_education_selection(query, context, "edu_courses")
 
 async def handle_save_interests(query, context: ContextTypes.DEFAULT_TYPE):
     """Сохранение интересов"""
-    # Если пользователь нажал кнопку, но не ввел текст, используем пример
     if 'interests' not in context.user_data['profile']:
         context.user_data['profile']['interests'] = "программирование, дизайн, творчество"
     
     await query.message.edit_text("✅ Интересы сохранены!")
     await asyncio.sleep(1)
-    
-    # Переходим к навыкам
+
     await query.message.edit_text(
         "🛠️ Шаг 4/6: Навыки\n\n"
         "Напиши свои навыки через запятую (например: Python, PhotoShop, C++, C#):",
@@ -1397,13 +1303,11 @@ async def handle_save_skills(query, context: ContextTypes.DEFAULT_TYPE):
     
     await query.message.edit_text("✅ Навыки сохранены!")
     await asyncio.sleep(1)
-    
-    # Проверяем возраст пользователя
+
     age_group = context.user_data['profile'].get('age_group', '')
     is_under_18 = age_group == "13-17 лет"
     
     if is_under_18:
-        # Для несовершеннолетних спрашиваем о подработке
         step_num = 4
         total_steps = context.user_data['profile']['total_steps']
         await query.message.edit_text(
@@ -1415,7 +1319,6 @@ async def handle_save_skills(query, context: ContextTypes.DEFAULT_TYPE):
             ])
         )
     else:
-        # Для взрослых спрашиваем о работе
         step_num = 5
         total_steps = context.user_data['profile']['total_steps']
         await query.message.edit_text(
@@ -1442,11 +1345,9 @@ async def handle_save_current_job(query, context: ContextTypes.DEFAULT_TYPE):
     await query.message.edit_text("✅ Текущая работа сохранена!")
     await asyncio.sleep(1)
     
-    # Проверяем возраст пользователя
     age_group = context.user_data['profile'].get('age_group', '')
     is_under_18 = age_group == "13-17 лет"
     
-    # Переходим к удовлетворенности
     step_num = 5 if is_under_18 else 6
     total_steps = context.user_data['profile']['total_steps']
     
@@ -1479,19 +1380,16 @@ async def handle_satisfaction_selection(query, context: ContextTypes.DEFAULT_TYP
     record_interaction(user.id, "satisfaction_selection", data)
     
     satisfaction = int(data.split("_")[1])
-    
-    # Проверяем, редактируем ли мы профиль или создаем новый
+
     if 'profile' in context.user_data:
-        # Создание нового профиля
         context.user_data['profile']['satisfaction'] = satisfaction
         
         await query.message.edit_text("✅ Удовлетворенность сохранена!")
         await asyncio.sleep(1)
         
-        # Завершаем создание профиля
         await handle_complete_profile(query, context)
+
     else:
-        # Редактирование существующего профиля
         profile = get_user_profile(user.id)
         if profile:
             profile['satisfaction'] = satisfaction
@@ -1508,7 +1406,7 @@ async def handle_satisfaction_selection(query, context: ContextTypes.DEFAULT_TYP
 
 async def handle_skip_satisfaction(query, context: ContextTypes.DEFAULT_TYPE):
     """Пропуск удовлетворенности"""
-    context.user_data['profile']['satisfaction'] = 3  # Средняя оценка
+    context.user_data['profile']['satisfaction'] = 3
     await handle_satisfaction_selection(query, context, "satisfaction_3")
 
 async def handle_complete_profile(query, context: ContextTypes.DEFAULT_TYPE):
@@ -1516,7 +1414,6 @@ async def handle_complete_profile(query, context: ContextTypes.DEFAULT_TYPE):
     user = query.from_user
     profile = context.user_data['profile']
     
-    # Сохраняем профиль в базу данных
     save_user_profile(
         user.id, 
         user.first_name, 
@@ -1525,15 +1422,13 @@ async def handle_complete_profile(query, context: ContextTypes.DEFAULT_TYPE):
     )
     
     record_interaction(user.id, "profile_completed")
-    
-    # Анимация завершения
+
     await query.message.edit_text("🎉 Создаем твой профиль...")
     await asyncio.sleep(1)
     
     await query.message.edit_text("✨ Профиль успешно создан!")
     await asyncio.sleep(1)
     
-    # Показываем созданный профиль
     profile_text = "👤 Твой профиль создан!\n\n"
     profile_text += f"👶 Возрастная группа: {profile.get('age_group', 'Не указано')}\n"
     profile_text += f"🎓 Образование: {profile.get('education', 'Не указано')}\n"
@@ -1555,7 +1450,6 @@ async def handle_complete_profile(query, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
     
-    # Очищаем временные данные
     context.user_data.pop('profile', None)
     context.user_data.pop('waiting_for_interests', None)
     context.user_data.pop('waiting_for_skills', None)
@@ -1566,7 +1460,6 @@ async def start_career_test(query, context: ContextTypes.DEFAULT_TYPE):
     user = query.from_user
     record_interaction(user.id, "start_career_test")
     
-    # Инициализируем тест
     questions = get_test_questions()
     context.user_data['test'] = {
         'questions': questions,
@@ -1575,7 +1468,6 @@ async def start_career_test(query, context: ContextTypes.DEFAULT_TYPE):
         'scores': {category: 0 for category in CAREER_CATEGORIES.keys()}
     }
     
-    # Анимация загрузки
     loading_msg = await query.message.reply_text("🔄 Подготавливаем тест...")
     await asyncio.sleep(1)
     
@@ -1585,7 +1477,6 @@ async def start_career_test(query, context: ContextTypes.DEFAULT_TYPE):
     await loading_msg.edit_text("✨ Тест готов! Начинаем...")
     await asyncio.sleep(1)
     
-    # Показываем первый вопрос
     await show_test_question(query, context)
 
 async def show_test_question(query, context: ContextTypes.DEFAULT_TYPE):
@@ -1595,14 +1486,12 @@ async def show_test_question(query, context: ContextTypes.DEFAULT_TYPE):
     questions = test_data['questions']
     
     if current_q >= len(questions):
-        # Тест завершен
         await finish_test(query, context)
         return
     
     question = questions[current_q]
     progress = f"Вопрос {current_q + 1}/{len(questions)}"
     
-    # Создаем кнопки для ответов
     buttons = []
     for i, option in enumerate(question['options']):
         buttons.append([InlineKeyboardButton(
@@ -1610,7 +1499,6 @@ async def show_test_question(query, context: ContextTypes.DEFAULT_TYPE):
             callback_data=f"test_answer_{i}"
         )])
     
-    # Добавляем кнопку завершения теста
     buttons.append([InlineKeyboardButton("🏁 Завершить тест", callback_data="finish_test")])
     
     text = f"🧠 {progress}\n\n"
@@ -1631,11 +1519,9 @@ async def handle_test_answer(query, context: ContextTypes.DEFAULT_TYPE, data: st
     test_data = context.user_data['test']
     current_q = test_data['current_question']
     question = test_data['questions'][current_q]
-    
-    # Сохраняем ответ
+
     test_data['answers'][current_q] = answer_index
-    
-    # Парсим веса и добавляем баллы
+
     weights_str = question['weights']
     for weight_pair in weights_str.split(','):
         if ':' in weight_pair:
@@ -1644,23 +1530,19 @@ async def handle_test_answer(query, context: ContextTypes.DEFAULT_TYPE, data: st
     
     record_interaction(user.id, "test_answer", f"q{current_q}_a{answer_index}")
     
-    # Анимация ответа
     selected_option = question['options'][answer_index]
     await query.message.edit_text(f"✅ Выбрано: {selected_option}")
     await asyncio.sleep(1)
     
-    # Переходим к следующему вопросу
     test_data['current_question'] += 1
     
     if test_data['current_question'] < len(test_data['questions']):
-        # Показываем прогресс
+
         progress_text = f"📊 Прогресс: {test_data['current_question']}/{len(test_data['questions'])}"
         await query.message.edit_text(progress_text)
         await asyncio.sleep(1)
-        
         await show_test_question(query, context)
     else:
-        # Тест завершен
         await finish_test(query, context)
 
 async def handle_finish_test(query, context: ContextTypes.DEFAULT_TYPE):
@@ -1672,7 +1554,6 @@ async def finish_test(query, context: ContextTypes.DEFAULT_TYPE):
     user = query.from_user
     test_data = context.user_data['test']
     
-    # Анимация анализа
     await query.message.edit_text("🔄 Анализируем твои ответы...")
     await asyncio.sleep(2)
     
@@ -1682,22 +1563,18 @@ async def finish_test(query, context: ContextTypes.DEFAULT_TYPE):
     await query.message.edit_text("📊 Определяем твои склонности...")
     await asyncio.sleep(2)
     
-    # Сохраняем результаты в базу данных
     save_test_results(user.id, test_data['scores'])
     
-    # Находим топ-3 категории
     sorted_scores = sorted(test_data['scores'].items(), key=lambda x: x[1], reverse=True)
     top_categories = sorted_scores[:3]
     
-    # Создаем результат
     result_text = "🎉 Результаты карьерного теста\n\n"
     result_text += "📊 Твои склонности:\n\n"
     
     for i, (category, score) in enumerate(top_categories, 1):
         category_name = CAREER_CATEGORIES.get(category, category)
         percentage = (score / sum(test_data['scores'].values())) * 100 if sum(test_data['scores'].values()) > 0 else 0
-        
-        # Эмодзи для категорий
+
         emoji_map = {
             "IT": "💻",
             "CREATIVE": "🎨", 
@@ -1727,11 +1604,8 @@ async def finish_test(query, context: ContextTypes.DEFAULT_TYPE):
     )
     
     record_interaction(user.id, "test_completed", f"scores_{test_data['scores']}")
-    
-    # Очищаем данные теста
     context.user_data.pop('test', None)
 
-# ====== Обработчики редактирования профиля ======
 async def handle_edit_age(query, context: ContextTypes.DEFAULT_TYPE):
     """Редактирование возрастной группы"""
     user = query.from_user
@@ -1856,12 +1730,10 @@ async def handle_confirm_delete(query, context: ContextTypes.DEFAULT_TYPE):
     """Подтверждение удаления профиля"""
     user = query.from_user
     record_interaction(user.id, "profile_deleted")
-    
-    # Удаляем профиль из базы данных
+
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    
-    # Удаляем все данные пользователя
+
     c.execute("DELETE FROM users WHERE user_id = ?", (user.id,))
     c.execute("DELETE FROM user_test_results WHERE user_id = ?", (user.id,))
     c.execute("DELETE FROM interactions WHERE user_id = ?", (user.id,))
@@ -1869,7 +1741,6 @@ async def handle_confirm_delete(query, context: ContextTypes.DEFAULT_TYPE):
     conn.commit()
     conn.close()
     
-    # Анимация удаления
     await query.message.edit_text("🗑️ Удаляем профиль...")
     await asyncio.sleep(1)
     
@@ -1902,15 +1773,13 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
     """Обработчик текстовых сообщений для поиска и создания профиля"""
     user = update.effective_user
     text = update.message.text
-    
-    # Проверяем, ждет ли бот поисковый запрос
+
     if context.user_data.get('waiting_for_search'):
         context.user_data['waiting_for_search'] = False
         await handle_search_query(update, context)
     elif context.user_data.get('waiting_for_vacancy_search'):
         context.user_data['waiting_for_vacancy_search'] = False
         await handle_vacancy_search(update, context)
-    # Проверяем, ждет ли бот ввод для создания профиля
     elif context.user_data.get('waiting_for_interests'):
         context.user_data['profile']['interests'] = text
         context.user_data['waiting_for_interests'] = False
@@ -1959,9 +1828,7 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
                 [InlineKeyboardButton("❌ Пропустить", callback_data="skip_satisfaction")]
             ])
         )
-    # Обработка редактирования профиля
     elif context.user_data.get('editing_interests'):
-        # Обновляем интересы в профиле
         profile = get_user_profile(user.id)
         if profile:
             profile['interests'] = text
@@ -1977,7 +1844,6 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
             )
         context.user_data['editing_interests'] = False
     elif context.user_data.get('editing_skills'):
-        # Обновляем навыки в профиле
         profile = get_user_profile(user.id)
         if profile:
             profile['skills'] = text
@@ -1993,7 +1859,6 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
             )
         context.user_data['editing_skills'] = False
     elif context.user_data.get('editing_current_job'):
-        # Обновляем текущую работу в профиле
         profile = get_user_profile(user.id)
         if profile:
             profile['current_job'] = text
@@ -2009,10 +1874,8 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
             )
         context.user_data['editing_current_job'] = False
     else:
-        # Если не ждем никакого ввода, показываем главное меню
         await start_command(update, context)
 
-# ====== Основная функция ======
 def get_test_questions() -> List[Dict]:
     """Получить все тестовые вопросы"""
     conn = sqlite3.connect(DB_PATH)
@@ -2042,10 +1905,8 @@ def save_test_results(user_id: int, results: Dict[str, int]):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     
-    # Удаляем старые результаты
     c.execute("DELETE FROM user_test_results WHERE user_id = ?", (user_id,))
     
-    # Сохраняем новые результаты
     now = datetime.utcnow().isoformat()
     for category, score in results.items():
         c.execute("""
@@ -2143,18 +2004,14 @@ def main():
     """Запуск бота"""
     print("Starting Career Advisor Bot...")
     
-    # Инициализация базы данных
     init_database()
     print("Database initialized")
     
-    # Заполнение данными
     seed_careers()
     seed_test_questions()
     
-    # Создание приложения
     application = Application.builder().token(BOT_TOKEN).build()
     
-    # Добавление обработчиков команд
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("profile", profile_command))
     application.add_handler(CommandHandler("test", test_command))
@@ -2162,13 +2019,10 @@ def main():
     application.add_handler(CommandHandler("search", search_command))
     application.add_handler(CommandHandler("vacancies", vacancies_command))
     
-    # Обработчик callback'ов
     application.add_handler(CallbackQueryHandler(button_callback))
     
-    # Обработчик текстовых сообщений для поиска
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text_message))
-    
-    # ConversationHandler для поиска профессий
+
     search_conversation = ConversationHandler(
         entry_points=[CommandHandler("search", search_command)],
         states={
@@ -2178,7 +2032,6 @@ def main():
     )
     application.add_handler(search_conversation)
     
-    # ConversationHandler для поиска вакансий
     vacancy_conversation = ConversationHandler(
         entry_points=[CommandHandler("vacancies", vacancies_command)],
         states={
@@ -2197,8 +2050,7 @@ async def handle_search_query(update: Update, context: ContextTypes.DEFAULT_TYPE
     user_id = update.effective_user.id
     
     record_interaction(user_id, "search_query", query)
-    
-    # Анимация поиска
+
     loading_msg = await update.message.reply_text(f"🔍 Ищу профессии по запросу '{query}'...")
     await asyncio.sleep(1)
     
@@ -2207,8 +2059,7 @@ async def handle_search_query(update: Update, context: ContextTypes.DEFAULT_TYPE
     
     await loading_msg.edit_text("🔍 Анализирую совпадения...")
     await asyncio.sleep(1)
-    
-    # Ищем профессии
+
     careers = search_careers(query)
     
     if not careers:
@@ -2225,16 +2076,13 @@ async def handle_search_query(update: Update, context: ContextTypes.DEFAULT_TYPE
             ]])
         )
         return
-    
-    # Анимация завершения
+
     await loading_msg.edit_text("✨ Профессии найдены!")
     await asyncio.sleep(1)
-    
-    # Показываем результаты (максимум 5)
+
     text = f"🎯 Результаты поиска по запросу '{query}':\n\n"
     
     for i, career in enumerate(careers[:5], 1):
-        # Эмодзи для категорий
         category_emoji = {
             "IT и технологии": "💻",
             "Творчество и дизайн": "🎨",
@@ -2280,7 +2128,6 @@ async def handle_search_query(update: Update, context: ContextTypes.DEFAULT_TYPE
 def search_hh_vacancies(query: str, limit: int = 5) -> List[Dict]:
     """Поиск вакансий на HH.ru"""
     try:
-        # Проверяем кеш
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
         c.execute("""
@@ -2292,11 +2139,10 @@ def search_hh_vacancies(query: str, limit: int = 5) -> List[Dict]:
         if cached_result:
             conn.close()
             return json.loads(cached_result[0])
-        
-        # Ищем вакансии через API
+
         params = {
             'text': query,
-            'area': 1,  # Москва
+            'area': 1,
             'per_page': limit,
             'only_with_salary': True
         }
@@ -2331,8 +2177,7 @@ def search_hh_vacancies(query: str, limit: int = 5) -> List[Dict]:
                 'description': item.get('snippet', {}).get('requirement', '')[:100] + '...'
             }
             vacancies.append(vacancy)
-        
-        # Сохраняем в кеш
+
         expires_at = (datetime.utcnow() + timedelta(hours=24)).isoformat()
         c.execute("""
         INSERT INTO parsed_vacancies(query, vacancy_data, created_at, expires_at)
@@ -2355,8 +2200,7 @@ async def handle_vacancy_search(update: Update, context: ContextTypes.DEFAULT_TY
     user_id = update.effective_user.id
     
     record_interaction(user_id, "vacancy_search", query)
-    
-    # Анимация поиска
+
     loading_msg = await update.message.reply_text(f"🔍 Ищу вакансии по запросу '{query}'...")
     await asyncio.sleep(1)
     
@@ -2384,12 +2228,10 @@ async def handle_vacancy_search(update: Update, context: ContextTypes.DEFAULT_TY
             ]])
         )
         return
-    
-    # Анимация завершения
+
     await loading_msg.edit_text("✨ Вакансии найдены!")
     await asyncio.sleep(1)
-    
-    # Показываем результаты
+
     text = f"💼 Актуальные вакансии по запросу '{query}' (HH.ru):\n\n"
     
     for i, vacancy in enumerate(vacancies, 1):
@@ -2411,8 +2253,7 @@ async def handle_vacancy_search(update: Update, context: ContextTypes.DEFAULT_TY
         parse_mode="Markdown",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
-    
-    # Очищаем данные поиска
+
     context.user_data.pop('search_platform', None)
     
     return ConversationHandler.END
