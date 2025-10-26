@@ -1,5 +1,5 @@
 
-#  KODLAND - ВСЕГДА БЫЛИ И БУДУТ ЛУШЕЙ ШКОЛОЙ ДЛЯ ПРОГРАММИСТОВ! 👍
+#  KODLAND - ВСЕГДА БЫЛИ И БУДУТ ЛУЧШЕЙ ШКОЛОЙ ДЛЯ ПРОГРАММИСТОВ! 👍
 
 import os
 import sqlite3
