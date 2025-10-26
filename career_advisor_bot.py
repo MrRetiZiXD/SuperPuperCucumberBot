@@ -15,7 +15,6 @@ from telegram.ext import (
     MessageHandler, ConversationHandler, ContextTypes, filters
 )
 
-# ====== Конфигурация ======
 BOT_TOKEN = os.getenv("BOT_TOKEN", "8474132149:AAHIinr4CEV53oYLZVnwu3pcxqQNrVxcWck")
 DB_PATH = "career_advisor.db"
 HH_API_URL = "https://api.hh.ru/vacancies"
